@@ -1,4 +1,4 @@
-;;; edit-comments --- Edit blocks of comments in a separate buffer  -*- lexical-binding: t; -*-
+;;; edit-comments.el --- Edit blocks of comments in a separate buffer  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2022-2022 Ruijie Yu
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -23,8 +23,8 @@
 ;;; Homepage: https://github.com/RuijieYu/emacs-edit-comments
 ;;; Keywords: tools, wp
 
-;;; Package-Version: 0.1.0-git
-;;; Package-Requires: ((emacs "25.1") cl-lib)
+;;; Version: 0.1.0-git
+;;; Package-Requires: ((emacs "26.1"))
 
 ;;; Commentary:
 
@@ -39,7 +39,7 @@
 
 
 ;;; Dependencies
-(require 'cl-lib)
+(require 'cl-lib)                      ; implied by (emacs > 24.3)
 
 
 ;;; Customizable Variables
@@ -160,7 +160,6 @@ or abort with `\\[edit-comments-abort]'")))
 
 
 ;;; Store related variables and functions
-;;;###autoload
 (defvar-local edit-comments--inferior-store (make-hash-table)
   "The value store for an inferior buffer.
 
@@ -188,7 +187,7 @@ ARGS should be repeated KEY VALUE pairs.
   (cl-do ((len (length args))
           (args args (cddr args)))
       ((length< args 2)
-       (unless (null args)
+       (when args
          (signal 'wrong-number-of-arguments `((% X 2) ,len))))
     (puthash (nth 0 args) (nth 1 args)
              edit-comments--inferior-store)))
@@ -394,17 +393,17 @@ after switching the major mode and before POST-INIT is called."
          (edit-comments-set-major-mode
           (list :comment edit-comments-default-major-mode)))
       (let* ((spec (car specs))
-             (parent-maj-mode (if (plistp spec)
-                                  (plist-get spec :parent)
-                                (car spec))))
-        ;; Skip if not matching
+             ;; `plistp' doesn't exist for emacs < 29
+             (plistp (and spec (listp spec) (keywordp (car spec))))
+             (parent-maj-mode
+              (if plistp (plist-get spec :parent)
+                (car spec))))
         (when (or (eql t parent-maj-mode)
                   (edit-comments-with-parent-buffer inf-buf
                     (derived-mode-p parent-maj-mode)))
           (edit-comments-set-major-mode
-           (if (plistp spec) spec
+           (if plistp spec
              (list :parent (car spec) :comment (cdr spec))))
-          ;; Stop looking further
           (cl-return))))))
 
 (defun edit-comments-set-major-mode (plist)
@@ -436,7 +435,7 @@ This assumes that point is in the edit buffer."
     (goto-char (point-min))
     (let ((inf-buf (current-buffer))
           (skipped (edit-comments--get 'comment)))
-      (while (< (point) (point-max))
+      (while (not (eobp))
         (let ((begin (line-beginning-position))
               (end (line-end-position)))
           (unless skipped (error "Comment was not stripped"))
@@ -521,7 +520,7 @@ This is not true for all programming languages."
                (edit-comments-with-parent-buffer (current-buffer)
                  comment-start-skip))
               (skipped nil))
-          (while (< (point) (point-max))
+          (while (eobp)
             (beginning-of-line)
             ;; Try to match current line with parent comment regex
             (let* ((line (buffer-substring
@@ -546,9 +545,6 @@ This is not true for all programming languages."
                 (edit-comments--kill-current-line))
               (forward-line)))
           (edit-comments--put 'comment skipped))))))
-
-;;;###autoload
-(add-hook 'kill-buffer-hook #'edit-comments--kill-hook)
 
 (defun edit-comments-save-buffer (&optional no-save)
   "Modify and save the parent buffer according to inferior buffer.

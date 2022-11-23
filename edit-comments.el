@@ -279,7 +279,7 @@ positions and CONTENTS is the contents of the region."
          (end (edit-comments--comment-end point arg)))
     (list (copy-marker begin t)
           (copy-marker end t)
-          (buffer-substring begin end))))
+          (buffer-substring-no-properties begin end))))
 
 (defun edit-comments--old-edit-buffer (&optional begin end)
   ;; Ref: `org-src--edit-buffer'

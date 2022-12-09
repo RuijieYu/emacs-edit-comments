@@ -567,21 +567,22 @@ NO-SAVE is non-nil."
            (set-buffer-modified-p nil)
            (edit-comments--writeback-prepare writeback-buf)
            (with-current-buffer parent-buf
-             (undo-boundary)
-             (goto-char begin)
-             ;; temporarily disable the read only overlay
-             (delete-overlay overlay)
-             (let ((expecting-bol (bolp)))
-               (save-restriction
-                 (narrow-to-region begin end)
-                 (replace-buffer-contents writeback-buf 0.1 nil)
-                 (goto-char (point-max)))
-               (when (and expecting-bol (not (bolp)))
-                 (insert "\n"))
-               (indent-region begin (min (1+ end) (point-max))))
-             (kill-buffer writeback-buf)
-             (unless no-save (save-buffer))
-             (move-overlay overlay begin (point))))
+             (with-buffer-unmodified-if-unchanged
+               (undo-boundary)
+               (goto-char begin)
+               ;; temporarily disable the read only overlay
+               (delete-overlay overlay)
+               (let ((expecting-bol (bolp)))
+                 (save-restriction
+                   (narrow-to-region begin end)
+                   (replace-buffer-contents writeback-buf 0.1 nil)
+                   (goto-char (point-max)))
+                 (when (and expecting-bol (not (bolp)))
+                   (insert "\n"))
+                 (indent-region begin (min (1+ end) (point-max))))
+               (kill-buffer writeback-buf)
+               (unless no-save (save-buffer))
+               (move-overlay overlay begin (point)))))
          ;; (message "%s" )
          (run-hooks 'after-save-hook)))
   t)
